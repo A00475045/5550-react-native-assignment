@@ -35,7 +35,7 @@ function SearchRandomLocation() {
       };
     }
 
-    const db = SQLite.openDatabase("weatherData.db");
+    const db = SQLite.openDatabase("weatherData2.db");
     return db;
   }
 
@@ -128,7 +128,7 @@ function SearchRandomLocation() {
   useEffect(() => {
     db.transaction((tx) => {
       tx.executeSql(
-        "CREATE TABLE IF NOT EXISTS city (name TEXT , lon TEXT, lat TEXT);",
+        "CREATE TABLE IF NOT EXISTS city (name TEXT, lon TEXT, lat TEXT);",
         (txObj, resultSet) => {
           console.log("Rows affected: ", resultSet.rowsAffected);
         },
@@ -141,7 +141,9 @@ function SearchRandomLocation() {
     // Select all data from table `todos`
     db.transaction((tx) => {
       // tx.executeSql(`DELETE FROM cities;`, [], (_, { rows: { _array } }) =>
-      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) => { }
+      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) => {
+        // console.log(_array)
+      }
       );
     });
   }, []);
@@ -208,6 +210,7 @@ function SearchRandomLocation() {
         }
         else {
           db.transaction((tx) => {
+            // console.log("-", cityName, "-")
             tx.executeSql("INSERT INTO city (name , lon , lat) VALUES (?, ?, ?)", [cityName, longitude.toString(), latitude.toString()],
               (txObj, resultSet) => {
                 console.log("Rows affected: ", resultSet.rowsAffected);

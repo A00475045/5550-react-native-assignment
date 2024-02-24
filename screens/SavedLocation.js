@@ -119,10 +119,9 @@ function SavedLocation({ route, navigation }) {
 
     const deleteFromList = (name) => {
         db.transaction((tx) => {
-            console.log("in delete");
+            // console.log("in delete   -", name, "-")
             tx.executeSql(
-                `DELETE FROM city WHERE name = ${name}`,
-                // [name],
+                `DELETE FROM city WHERE name = '${name}'`,
                 (txObj, resultSet) => {
                     console.log("Rows affected: ", resultSet.rowsAffected);
                 },
@@ -182,7 +181,7 @@ function SavedLocation({ route, navigation }) {
             };
         }
 
-        const db = SQLite.openDatabase("weatherData.db");
+        const db = SQLite.openDatabase("weatherData2.db");
         // console.log(db);
         return db;
     }
