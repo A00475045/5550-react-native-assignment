@@ -1,49 +1,27 @@
 
 
-import { useState } from "react";
-import {Text,KeyboardAvoidingView, View, StyleSheet, FlatList, Modal, TextInput, Button,Platform, TouchableOpacity  } from "react-native";
+import { useEffect, useState } from "react";
+import {Text,KeyboardAvoidingView, View, StyleSheet, FlatList, Modal, TextInput, Button, Alert, Platform, TouchableOpacity,Image  } from "react-native";
+import * as SQLite from "expo-sqlite";
 
 
 
 
-function SearchRandomLocation({ route, navigation }) {
-
+function SearchRandomLocation() {
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [longitude, setLongitude] = useState(0);
   const [latitude, setLatitude] = useState(0);
+  const [cityName, setCityName] = useState("");
   const [isLoading, setIsLoading] = useState("");
+  const [weatherData, setWeatherData] = useState({
+    temperature: "-",
+    locationName: "",
+    weatherCondition: "",
+    conditionIcon: "",
+  });
   const [cityList, setCityList] = useState([])
   const [isModalopen, setIsModalOpen] = useState(false);
-  const handleSearch= (text) =>  {
-    setSearchQuery(text);
-}
-  const handlePress = () => {
-    setIsLoading(true);
-
-    fetch(`https://geocode.maps.co/search?q=${searchQuery}&api_key=65d829134b032557730195xtpd27bb2`)
-    .then(resp => resp.json())
-    .then(res => {
-      console.log(res)
-      setCityList(res)
-    })
-    .catch((err) => {
-      console.log(err)
-    } )
-
-    console.log("Press Event fired!!")
-  }
-
-  const handleItemClick = (osmId) => {
-    // console.log("Item clicked:", osmId);
-    cityList.map(( (item) => {
-      if(item.osm_id === osmId) {
-        setLatitude(item.lat)
-        setLongitude(item.lon)
-        setIsModalOpen(true)
-      }
-    }))
-    // Handle click event, e.g., navigate to a new screen
-  };
 
   const styles = StyleSheet.create({
     container: {
@@ -73,6 +51,126 @@ function SearchRandomLocation({ route, navigation }) {
       elevation: 5,
     },
   });
+
+
+  const handleSearch= (text) =>  {
+    setSearchQuery(text);
+}
+  const handlePress = () => {
+    setIsLoading(true);
+
+    fetch(`https://geocode.maps.co/search?q=${searchQuery}&api_key=65d829134b032557730195xtpd27bb2`)
+    .then(resp => resp.json())
+    .then(res => {
+      setCityList(res)
+      // console.log(res)
+    })
+    .catch((err) => {
+      console.log(err)
+    } )
+
+  }
+
+  useEffect( () => {
+    fetch(
+      `http://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&APPID=ba54be19d96707cf43191d3e9adbd4f9&units=metric`
+      )
+      .then((res) => res.json())
+      .then((json) => {
+        setWeatherData({
+          temperature: json.main.temp,
+          locationName: json.name,
+          weatherCondition: json.weather[0].main,
+          conditionIcon: json.weather[0].icon,
+        });
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.log(err);
+        setError(true);
+      });
+
+  },[longitude])
+  const handleItemClick = async (osmId) => {
+    setIsLoading(true)
+    setIsModalOpen(true)
+    cityList.map(( (item) => {
+      if(item.osm_id === osmId) {
+        setLatitude(item.lat)
+        setLongitude(item.lon)
+        setCityName(item.display_name)
+      }
+      
+
+    })
+    )
+ };
+
+ useEffect(() => {
+  // Create table `items` (if does not exist)
+  db.transaction((tx) => {
+    console.log("create")
+    tx.executeSql(
+      "CREATE TABLE IF NOT EXISTS city (name TEXT , lon TEXT, lat TEXT);",
+      (txObj, resultSet) => {
+        console.log("Rows affected: ", resultSet.rowsAffected);
+      },
+      (txObj, error) => {
+        console.log("Error executing SQL: ", error);
+      }// callback
+    );
+  });
+
+  // Select all data from table `todos`
+  db.transaction((tx) => {
+    // tx.executeSql(`DELETE FROM cities;`, [], (_, { rows: { _array } }) =>
+    tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) =>
+      console.log("yo yo yo :",_array)
+      // {}
+    );
+  });
+}, []);
+
+ function getDatabase() {
+  // Error handling, in case the platform is web (expo-sqlite does not support web)
+  if (Platform.OS === "web") {
+    return {
+      transaction: () => {
+        return {
+          executeSql: () => {},
+        };
+      },
+    };
+  }
+
+  const db = SQLite.openDatabase("weatherData.db");
+  // console.log(db);
+  return db;
+}
+
+const db = getDatabase();
+
+
+  const Weather = ({ weatherData }) => {
+    return (
+      <View style={styles.weatherContainer}>
+        <View style={styles.headerContainer}>
+          <Image
+            source={{
+              uri: `http://openweathermap.org/img/wn/${weatherData.conditionIcon}@2x.png`,
+            }}
+            style={{ width: 120, height: 120 }}
+          />
+          <Text style={styles.tempText}>{weatherData.locationName}</Text>
+        </View>
+        <View style={styles.bodyContainer}>
+          <Text style={styles.title}>{weatherData.temperature}{weatherData.temperature != "-" ? "˚" : ""}</Text>
+          <Text style={styles.subtitle}>{weatherData.weatherCondition}</Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderItem = ({ item }) => (
     <TouchableOpacity onPress={() => handleItemClick(item.osm_id)}>
       <View style={{ padding: 10, borderBottomWidth: 1,
@@ -82,28 +180,90 @@ function SearchRandomLocation({ route, navigation }) {
     </TouchableOpacity>
   );
 
+  const exist = (arr) => {
+    arr.map((item) => {
+      if(item.name === cityName) return true;
+    })
+    return false;
+  }
+
+  const saveLocation = () => {
+
+    db.transaction((tx) => {
+      console.log("in here")
+      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) =>
+      {
+        console.log(_array)
+        if(_array.length > 3 ) 
+        {
+          Alert.alert(
+            'Bookmark Limit Reached',
+            'You can only bookmark 4 locations at a time!',
+            [
+              {
+                text: 'OK',
+                // onPress: () => {return},
+              },
+            ],
+            { cancelable: false }
+          );
+            return
+        } else if (exist(_array)){
+          return
+        }
+        else {
+          db.transaction((tx) => {
+            console.log("click", cityName, longitude.toString(), latitude.toString(), )
+            tx.executeSql("INSERT INTO city (name , lon , lat) VALUES (?, ?, ?)", [cityName, longitude.toString(), latitude.toString()],
+            (txObj, resultSet) => {
+              console.log("Rows affected: ", resultSet.rowsAffected);
+            },
+            (txObj, error) => {
+              console.log("Error executing SQL: ", error);
+            }
+            );
+          });
+          setIsModalOpen(false)
+        }
+      }
+      );
+    });
+
+
+    
+
+  }
+
   const popUp = () => {
 
    return <View style={{
-      flex: 1,
+      // flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
     }}>
-      <Button title="Open Modal" onPress={() => setModalVisible(true)} />
+      {/* <Button title="Open Modal" onPress={() => setModalVisible(true)} /> */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={isModalopen}
         onRequestClose={() => {
-          setModalVisible(false);
+          setIsModalOpen(false);
         }}
       >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text>This is a modal</Text>
-            <Button title="Close" onPress={() => setIsModalOpen(false)} />
+
+         <View style={styles.centeredView}>
+        {isLoading && <Image
+            source={{
+              uri: `https://i.gifer.com/ZZ5H.gif`,
+            }}
+            style={{ width: 120, height: 120 }}
+          />}
+         {!isLoading &&<View style={styles.modalView}>
+          <Weather weatherData={weatherData}/>
+            <Button title="Close" onPress={() => {setIsModalOpen(false)}} />
+            <Button title="Save" onPress={saveLocation} />
+        </View>}
           </View>
-        </View>
       </Modal>
     </View>
   }
@@ -131,7 +291,7 @@ function SearchRandomLocation({ route, navigation }) {
             width: "98%",
             borderRadius: 8,
           }}
-          placeholder="Search..."
+          placeholder="Search Location..."
           onChangeText={handleSearch}
           value={searchQuery}
         />
