@@ -121,8 +121,8 @@ function SavedLocation({ route, navigation }) {
         db.transaction((tx) => {
             console.log("in delete");
             tx.executeSql(
-                "DELETE FROM city WHERE name = ?",
-                [name],
+                `DELETE FROM city WHERE name = ${name}`,
+                // [name],
                 (txObj, resultSet) => {
                     console.log("Rows affected: ", resultSet.rowsAffected);
                 },

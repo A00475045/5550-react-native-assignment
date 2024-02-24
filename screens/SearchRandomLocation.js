@@ -1,14 +1,14 @@
 
 
 import { useEffect, useState } from "react";
-import {Text,KeyboardAvoidingView, View, StyleSheet, FlatList, Modal, TextInput, Button, Alert, Platform, TouchableOpacity,Image  } from "react-native";
+import { Text, KeyboardAvoidingView, View, StyleSheet, FlatList, Modal, TextInput, Button, Alert, Platform, TouchableOpacity, Image } from "react-native";
 import * as SQLite from "expo-sqlite";
 
 
 
 
 function SearchRandomLocation() {
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [longitude, setLongitude] = useState(0);
   const [latitude, setLatitude] = useState(0);
@@ -22,6 +22,25 @@ function SearchRandomLocation() {
   });
   const [cityList, setCityList] = useState([])
   const [isModalopen, setIsModalOpen] = useState(false);
+
+  function getDatabase() {
+    // Error handling, in case the platform is web (expo-sqlite does not support web)
+    if (Platform.OS === "web") {
+      return {
+        transaction: () => {
+          return {
+            executeSql: () => { },
+          };
+        },
+      };
+    }
+
+    const db = SQLite.openDatabase("weatherData.db");
+    return db;
+  }
+
+  const db = getDatabase();
+
 
   const styles = StyleSheet.create({
     container: {
@@ -53,28 +72,28 @@ function SearchRandomLocation() {
   });
 
 
-  const handleSearch= (text) =>  {
+  const handleSearch = (text) => {
     setSearchQuery(text);
-}
+  }
   const handlePress = () => {
     setIsLoading(true);
 
     fetch(`https://geocode.maps.co/search?q=${searchQuery}&api_key=65d829134b032557730195xtpd27bb2`)
-    .then(resp => resp.json())
-    .then(res => {
-      setCityList(res)
-      // console.log(res)
-    })
-    .catch((err) => {
-      console.log(err)
-    } )
+      .then(resp => resp.json())
+      .then(res => {
+        setCityList(res)
+        // console.log(res)
+      })
+      .catch((err) => {
+        console.log(err)
+      })
 
   }
 
-  useEffect( () => {
+  useEffect(() => {
     fetch(
       `http://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&APPID=ba54be19d96707cf43191d3e9adbd4f9&units=metric`
-      )
+    )
       .then((res) => res.json())
       .then((json) => {
         setWeatherData({
@@ -90,65 +109,43 @@ function SearchRandomLocation() {
         setError(true);
       });
 
-  },[longitude])
+  }, [longitude])
   const handleItemClick = async (osmId) => {
     setIsLoading(true)
     setIsModalOpen(true)
-    cityList.map(( (item) => {
-      if(item.osm_id === osmId) {
+    cityList.map(((item) => {
+      if (item.osm_id === osmId) {
         setLatitude(item.lat)
         setLongitude(item.lon)
         setCityName(item.display_name)
       }
-      
+
 
     })
     )
- };
+  };
 
- useEffect(() => {
-  // Create table `items` (if does not exist)
-  db.transaction((tx) => {
-    console.log("create")
-    tx.executeSql(
-      "CREATE TABLE IF NOT EXISTS city (name TEXT , lon TEXT, lat TEXT);",
-      (txObj, resultSet) => {
-        console.log("Rows affected: ", resultSet.rowsAffected);
-      },
-      (txObj, error) => {
-        console.log("Error executing SQL: ", error);
-      }// callback
-    );
-  });
+  useEffect(() => {
+    db.transaction((tx) => {
+      tx.executeSql(
+        "CREATE TABLE IF NOT EXISTS city (name TEXT , lon TEXT, lat TEXT);",
+        (txObj, resultSet) => {
+          console.log("Rows affected: ", resultSet.rowsAffected);
+        },
+        (txObj, error) => {
+          console.log("Error executing SQL: ->", error);
+        }// callback
+      );
+    });
 
-  // Select all data from table `todos`
-  db.transaction((tx) => {
-    // tx.executeSql(`DELETE FROM cities;`, [], (_, { rows: { _array } }) =>
-    tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) =>
-      console.log("yo yo yo :",_array)
-      // {}
-    );
-  });
-}, []);
+    // Select all data from table `todos`
+    db.transaction((tx) => {
+      // tx.executeSql(`DELETE FROM cities;`, [], (_, { rows: { _array } }) =>
+      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) => { }
+      );
+    });
+  }, []);
 
- function getDatabase() {
-  // Error handling, in case the platform is web (expo-sqlite does not support web)
-  if (Platform.OS === "web") {
-    return {
-      transaction: () => {
-        return {
-          executeSql: () => {},
-        };
-      },
-    };
-  }
-
-  const db = SQLite.openDatabase("weatherData.db");
-  // console.log(db);
-  return db;
-}
-
-const db = getDatabase();
 
 
   const Weather = ({ weatherData }) => {
@@ -173,8 +170,10 @@ const db = getDatabase();
 
   const renderItem = ({ item }) => (
     <TouchableOpacity onPress={() => handleItemClick(item.osm_id)}>
-      <View style={{ padding: 10, borderBottomWidth: 1,
-    borderBottomColor: 'gray', marginTop:10 }}>
+      <View style={{
+        padding: 10, borderBottomWidth: 1,
+        borderBottomColor: 'gray', marginTop: 10
+      }}>
         <Text>{item.display_name}</Text>
       </View>
     </TouchableOpacity>
@@ -182,7 +181,7 @@ const db = getDatabase();
 
   const exist = (arr) => {
     arr.map((item) => {
-      if(item.name === cityName) return true;
+      if (item.name === cityName) return true;
     })
     return false;
   }
@@ -190,12 +189,8 @@ const db = getDatabase();
   const saveLocation = () => {
 
     db.transaction((tx) => {
-      console.log("in here")
-      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) =>
-      {
-        console.log(_array)
-        if(_array.length > 3 ) 
-        {
+      tx.executeSql(`SELECT * FROM city;`, [], (_, { rows: { _array } }) => {
+        if (_array.length > 3) {
           Alert.alert(
             'Bookmark Limit Reached',
             'You can only bookmark 4 locations at a time!',
@@ -207,20 +202,19 @@ const db = getDatabase();
             ],
             { cancelable: false }
           );
-            return
-        } else if (exist(_array)){
+          return
+        } else if (exist(_array)) {
           return
         }
         else {
           db.transaction((tx) => {
-            console.log("click", cityName, longitude.toString(), latitude.toString(), )
             tx.executeSql("INSERT INTO city (name , lon , lat) VALUES (?, ?, ?)", [cityName, longitude.toString(), latitude.toString()],
-            (txObj, resultSet) => {
-              console.log("Rows affected: ", resultSet.rowsAffected);
-            },
-            (txObj, error) => {
-              console.log("Error executing SQL: ", error);
-            }
+              (txObj, resultSet) => {
+                console.log("Rows affected: ", resultSet.rowsAffected);
+              },
+              (txObj, error) => {
+                console.log("Error executing SQL: ", error);
+              }
             );
           });
           setIsModalOpen(false)
@@ -230,13 +224,13 @@ const db = getDatabase();
     });
 
 
-    
+
 
   }
 
   const popUp = () => {
 
-   return <View style={{
+    return <View style={{
       // flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
@@ -251,25 +245,25 @@ const db = getDatabase();
         }}
       >
 
-         <View style={styles.centeredView}>
-        {isLoading && <Image
+        <View style={styles.centeredView}>
+          {isLoading && <Image
             source={{
               uri: `https://i.gifer.com/ZZ5H.gif`,
             }}
             style={{ width: 120, height: 120 }}
           />}
-         {!isLoading &&<View style={styles.modalView}>
-          <Weather weatherData={weatherData}/>
-            <Button title="Close" onPress={() => {setIsModalOpen(false)}} />
+          {!isLoading && <View style={styles.modalView}>
+            <Weather weatherData={weatherData} />
+            <Button title="Close" onPress={() => { setIsModalOpen(false) }} />
             <Button title="Save" onPress={saveLocation} />
-        </View>}
-          </View>
+          </View>}
+        </View>
       </Modal>
     </View>
   }
 
-    return (
-      <View style={{ flex: 1 }}>
+  return (
+    <View style={{ flex: 1 }}>
       {isModalopen && popUp()}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
